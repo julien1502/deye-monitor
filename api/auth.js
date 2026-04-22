@@ -109,29 +109,62 @@ export default async function handler(req, res) {
       });
     }
 
-   if (action === "realtime") {
+  if (action === "realtime") {
   if (!token || !deviceId) {
     return res.status(400).json({ error: "Token ou deviceId manquant" });
   }
 
   const realtimeUrl = `${apiBase}/device/latest`;
 
-  const realtimeResponse = await fetch(realtimeUrl, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      deviceId: deviceId
-    })
-  });
+  const attempts = [
+    { label: "deviceId:number", body: { deviceId: Number(deviceId) } },
+    { label: "deviceId:string", body: { deviceId: String(deviceId) } },
+    { label: "deviceIdList:number[]", body: { deviceIdList: [Number(deviceId)] } },
+    { label: "deviceIdList:string[]", body: { deviceIdList: [String(deviceId)] } },
+    { label: "id:number", body: { id: Number(deviceId) } },
+    { label: "id:string", body: { id: String(deviceId) } }
+  ];
 
-  const realtimeData = await realtimeResponse.json().catch(() => null);
+  const results = [];
 
-  return res.status(realtimeResponse.ok ? 200 : 500).json({
-    success: realtimeResponse.ok,
-    sent: {
-      deviceId: deviceId
-    },
-    response: realtimeData
+  for (const attempt of attempts) {
+    try {
+      const r = await fetch(realtimeUrl, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify(attempt.body)
+      });
+
+      const j = await r.json().catch(() => null);
+
+      results.push({
+        label: attempt.label,
+        sent: attempt.body,
+        httpStatus: r.status,
+        response: j
+      });
+
+      if (r.ok && j?.success !== false) {
+        return res.status(200).json({
+          success: true,
+          workingAttempt: attempt.label,
+          sent: attempt.body,
+          response: j
+        });
+      }
+    } catch (e) {
+      results.push({
+        label: attempt.label,
+        sent: attempt.body,
+        error: e.message
+      });
+    }
+  }
+
+  return res.status(500).json({
+    success: false,
+    error: "Aucune variante realtime n'a fonctionné",
+    attempts: results
   });
 }
 
