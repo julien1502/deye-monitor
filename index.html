@@ -197,63 +197,63 @@
       }
     }
 
-    async function fetchData() {
-      try {
-        const f = getForm();
+   async function fetchData() {
+  try {
+    const f = getForm();
 
-        if (!token || !deviceId) return;
+    if (!token || !deviceId) return;
 
-        const res = await fetch(api(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "realtime",
-            token,
-            deviceId,
-            ...f
-          })
-        });
+    const res = await fetch(api(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "realtime",
+        token,
+        deviceId,
+        ...f
+      })
+    });
 
-        const realtimeData = await res.json().catch(() => null);
-        log("REALTIME", realtimeData);
+    const realtimeData = await res.json().catch(() => null);
+    log("REALTIME", realtimeData);
 
-        if (!res.ok) {
-          document.getElementById("status").textContent = "Erreur temps réel";
-          return;
-        }
-
-        const raw =
-          realtimeData?.response?.data?.[0] ||
-          realtimeData?.response?.data ||
-          realtimeData?.response ||
-          null;
-
-        if (!raw) {
-          document.getElementById("status").textContent = "Pas de données temps réel";
-          return;
-        }
-
-        const power =
-          raw.activePower ??
-          raw.outputPower ??
-          raw.pac ??
-          raw.powerAC ??
-          0;
-
-        const energy =
-          raw.dayEnergy ??
-          raw.energyToday ??
-          raw.eday ??
-          0;
-
-        document.getElementById("power").textContent = power + " W";
-        document.getElementById("energy").textContent = energy + " kWh";
-      } catch (e) {
-        console.error(e);
-        document.getElementById("status").textContent = "Erreur fetchData: " + e.message;
-        log("ERREUR FETCHDATA", { message: e.message, stack: e.stack });
-      }
+    if (!res.ok) {
+      document.getElementById("status").textContent = "Erreur temps réel";
+      return;
     }
+
+    const raw =
+      realtimeData?.response?.data?.[0] ||
+      realtimeData?.response?.data ||
+      realtimeData?.response ||
+      null;
+
+    if (!raw) {
+      document.getElementById("status").textContent = "Pas de données temps réel";
+      return;
+    }
+
+    const power =
+      raw.activePower ??
+      raw.outputPower ??
+      raw.pac ??
+      raw.powerAC ??
+      0;
+
+    const energy =
+      raw.dayEnergy ??
+      raw.energyToday ??
+      raw.eday ??
+      0;
+
+    document.getElementById("power").textContent = power + " W";
+    document.getElementById("energy").textContent = energy + " kWh";
+  } catch (e) {
+    console.error(e);
+    document.getElementById("status").textContent = "Erreur fetchData: " + e.message;
+    log("ERREUR FETCHDATA", { message: e.message, stack: e.stack });
+  }
+}
   </script>
 </body>
 </html>
