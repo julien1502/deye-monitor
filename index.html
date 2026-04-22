@@ -90,6 +90,7 @@
     let token = null;
     let deviceId = null;
     let refreshTimer = null;
+    let stationId = null;
 
     function api() {
       return window.location.origin + "/api/auth";
@@ -119,6 +120,8 @@
     async function connectToDeye() {
       try {
         const f = getForm();
+        deviceId = inverter.deviceId;
+stationId = inverter.stationId;
 
         if (!f.username || !f.password || !f.appId || !f.appSecret || !f.baseUrl) {
           document.getElementById("status").textContent = "Merci de remplir tous les champs obligatoires";
@@ -131,10 +134,13 @@
         const loginRes = await fetch(api(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "login",
-            ...f
-          })
+body: JSON.stringify({
+  action: "realtime",
+  token,
+  deviceId,
+  stationId,
+  ...f
+})
         });
 
         const loginData = await loginRes.json().catch(() => null);
