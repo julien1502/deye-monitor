@@ -585,6 +585,47 @@ showSuccess(`✓ Connecté à ${inverter.stationName} - ${inverter.deviceType} (
 
         fillEu();
     });
+
+    async function fetchDeyeData() {
+    const { appId, appSecret, baseUrl, companyId } = getFormValues();
+
+    if (!deyeToken || !deyeDeviceId || !baseUrl) return;
+
+    try {
+        const response = await fetch(apiUrl(), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                action: "realtime",
+                token: deyeToken,
+                deviceId: deyeDeviceId,
+                appId,
+                appSecret,
+                baseUrl,
+                companyId
+            })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        console.log("REALTIME RESPONSE =", data);
+
+        if (!response.ok) {
+            throw new Error(
+                data?.error ||
+                data?.response?.msg ||
+                `Erreur API: ${response.status}`
+            );
+        }
+
+        showSuccess("Données reçues (voir console)");
+    } catch (error) {
+        console.error("Erreur données temps réel:", error);
+        showError(`Erreur données temps réel: ${error.message}`);
+    }
+}
 </script>
 </body>
 </html>
