@@ -1,3 +1,13 @@
+import crypto from "crypto";
+
+function sha256Lower(value) {
+  return crypto
+    .createHash("sha256")
+    .update(String(value), "utf8")
+    .digest("hex")
+    .toLowerCase();
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -31,14 +41,13 @@ export default async function handler(req, res) {
 
     if (!username || !password || !appId || !appSecret || !apiBase) {
       return res.status(400).json({
-        error: "Champs manquants",
-        details: { username: !!username, password: !!password, appId: !!appId, appSecret: !!appSecret, baseUrl: !!apiBase }
+        error: "Champs manquants"
       });
     }
 
     const loginBody = {
       email: username,
-      password: password,
+      password: sha256Lower(password),
       appSecret: appSecret
     };
 
@@ -68,21 +77,12 @@ export default async function handler(req, res) {
     return res.status(authResponse.status).json({
       success: authResponse.ok,
       status: authResponse.status,
-      loginUrl,
-      sentBodyPreview: {
-        email: username,
-        hasPassword: !!password,
-        hasAppSecret: !!appSecret,
-        hasCompanyId: !!companyId
-      },
       response: parsed
     });
   } catch (error) {
-    console.error("Erreur serveur:", error);
     return res.status(500).json({
       error: "Erreur serveur",
-      details: error?.message || String(error),
-      stack: error?.stack || null
+      details: error?.message || String(error)
     });
   }
 }
