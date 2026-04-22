@@ -117,91 +117,88 @@
       };
     }
 
-    async function connectToDeye() {
-      try {
-        const f = getForm();
-        deviceId = inverter.deviceId;
-stationId = inverter.stationId;
+async function connectToDeye() {
+  try {
+    const f = getForm();
 
-        if (!f.username || !f.password || !f.appId || !f.appSecret || !f.baseUrl) {
-          document.getElementById("status").textContent = "Merci de remplir tous les champs obligatoires";
-          return;
-        }
-
-        document.getElementById("status").textContent = "Connexion...";
-        log("Début connexion");
-
-        const loginRes = await fetch(api(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  action: "realtime",
-  token,
-  deviceId,
-  stationId,
-  ...f
-})
-        });
-
-        const loginData = await loginRes.json().catch(() => null);
-        log("LOGIN", loginData);
-
-        if (!loginRes.ok || !loginData?.response?.accessToken) {
-          document.getElementById("status").textContent = "Échec login";
-          return;
-        }
-
-        token = loginData.response.accessToken;
-
-        document.getElementById("status").textContent = "Récupération des appareils...";
-
-        const devRes = await fetch(api(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "devices",
-            token,
-            ...f
-          })
-        });
-
-        const devData = await devRes.json().catch(() => null);
-        log("DEVICES", devData);
-
-        const stations = devData?.response?.stationList || [];
-        const allDevices = stations.flatMap(station =>
-          (station.deviceListItems || []).map(device => ({
-            ...device,
-            stationName: station.name
-          }))
-        );
-
-        log("ALL DEVICES", allDevices);
-
-        const inverter =
-          allDevices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo") ||
-          allDevices.find(d => d.deviceType === "INVERTER") ||
-          null;
-
-        if (!inverter) {
-          document.getElementById("status").textContent = "Aucun onduleur trouvé";
-          return;
-        }
-
-        deviceId = inverter.deviceId;
-        document.getElementById("status").textContent =
-          "Connecté à " + inverter.stationName + " - INVERTER (" + inverter.deviceId + ")";
-
-        if (refreshTimer) clearInterval(refreshTimer);
-        await fetchData();
-        refreshTimer = setInterval(fetchData, 30000);
-
-      } catch (e) {
-        console.error(e);
-        document.getElementById("status").textContent = "Erreur connexion: " + e.message;
-        log("ERREUR CONNEXION", { message: e.message, stack: e.stack });
-      }
+    if (!f.username || !f.password || !f.appId || !f.appSecret || !f.baseUrl) {
+      document.getElementById("status").textContent = "Merci de remplir tous les champs obligatoires";
+      return;
     }
+
+    document.getElementById("status").textContent = "Connexion...";
+    log("Début connexion");
+
+    const loginRes = await fetch(api(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "login",
+        ...f
+      })
+    });
+
+    const loginData = await loginRes.json().catch(() => null);
+    log("LOGIN", loginData);
+
+    if (!loginRes.ok || !loginData?.response?.accessToken) {
+      document.getElementById("status").textContent = "Échec login";
+      return;
+    }
+
+    token = loginData.response.accessToken;
+
+    document.getElementById("status").textContent = "Récupération des appareils...";
+
+    const devRes = await fetch(api(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "devices",
+        token,
+        ...f
+      })
+    });
+
+    const devData = await devRes.json().catch(() => null);
+    log("DEVICES", devData);
+
+    const stations = devData?.response?.stationList || [];
+    const allDevices = stations.flatMap(station =>
+      (station.deviceListItems || []).map(device => ({
+        ...device,
+        stationName: station.name
+      }))
+    );
+
+    log("ALL DEVICES", allDevices);
+
+    const inverter =
+      allDevices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo") ||
+      allDevices.find(d => d.deviceType === "INVERTER") ||
+      null;
+
+    if (!inverter) {
+      document.getElementById("status").textContent = "Aucun onduleur trouvé";
+      return;
+    }
+
+    deviceId = inverter.deviceId;
+    stationId = inverter.stationId;
+
+    document.getElementById("status").textContent =
+      "Connecté à " + inverter.stationName + " - INVERTER (" + inverter.deviceId + ")";
+
+    if (refreshTimer) clearInterval(refreshTimer);
+    await fetchData();
+    refreshTimer = setInterval(fetchData, 30000);
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("status").textContent = "Erreur connexion: " + e.message;
+    log("ERREUR CONNEXION", { message: e.message, stack: e.stack });
+  }
+}
 
    async function fetchData() {
   try {
