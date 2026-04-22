@@ -123,33 +123,57 @@ async function connect() {
 }
 
 async function fetchData() {
-
     const f = getForm();
 
-    const res = await fetch(api(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "realtime",
-            token,
-            deviceId,
-            ...f
-        })
-    });
+    try {
+        const res = await fetch(api(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "realtime",
+                token,
+                deviceId,
+                ...f
+            })
+        });
 
-async function fetchData() {
-    const f = getForm();
+        const realtimeData = await res.json().catch(() => null);
 
-    const res = await fetch(api(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "realtime",
-            token,
-            deviceId,
-            ...f
-        })
-    });
+        console.log("REALTIME =", realtimeData);
+        console.log("REALTIME JSON =", JSON.stringify(realtimeData, null, 2));
+
+        if (!res.ok) {
+            document.getElementById("status").innerText = "Erreur temps réel";
+            return;
+        }
+
+        const raw = realtimeData?.response?.data?.[0] || realtimeData?.response?.data;
+
+        if (!raw) {
+            document.getElementById("status").innerText = "Pas de données temps réel";
+            return;
+        }
+
+        const power =
+            raw.activePower ??
+            raw.outputPower ??
+            raw.pac ??
+            raw.powerAC ??
+            0;
+
+        const energy =
+            raw.dayEnergy ??
+            raw.energyToday ??
+            raw.eday ??
+            0;
+
+        document.getElementById("power").innerText = power + " W";
+        document.getElementById("energy").innerText = energy + " kWh";
+    } catch (error) {
+        console.error("Erreur fetchData:", error);
+        document.getElementById("status").innerText = "Erreur fetchData";
+    }
+}
 
     const data = await res.json();
     console.log("REALTIME =", data);
