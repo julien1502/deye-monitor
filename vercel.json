@@ -1,8 +1,3 @@
 {
-  "buildCommand": "echo 'build'",
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "buildCommand": "echo 'build'"
 }
