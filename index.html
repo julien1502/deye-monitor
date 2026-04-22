@@ -137,8 +137,48 @@ async function fetchData() {
         })
     });
 
+async function fetchData() {
+    const f = getForm();
+
+    const res = await fetch(api(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "realtime",
+            token,
+            deviceId,
+            ...f
+        })
+    });
+
     const data = await res.json();
-    console.log("REALTIME", data);
+    console.log("REALTIME =", data);
+    console.log("REALTIME JSON =", JSON.stringify(data, null, 2));
+    alert(JSON.stringify(data, null, 2));
+
+    if (!res.ok) {
+        return;
+    }
+
+    const raw = data.response?.data?.[0] || data.response?.data;
+    if (!raw) return;
+
+    const power =
+        raw.activePower ??
+        raw.outputPower ??
+        raw.pac ??
+        raw.powerAC ??
+        0;
+
+    const energy =
+        raw.dayEnergy ??
+        raw.energyToday ??
+        raw.eday ??
+        0;
+
+    document.getElementById("power").innerText = power + " W";
+    document.getElementById("energy").innerText = energy + " kWh";
+}
 
     const raw = data.response?.data?.[0] || data.response?.data;
 
