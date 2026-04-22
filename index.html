@@ -526,19 +526,32 @@ if (!devicesResponse.ok) {
 }
 
 const raw = devicesData?.response;
-const possibleList =
-    raw?.data?.records ||
-    raw?.data?.rows ||
-    raw?.data?.list ||
-    raw?.data ||
-    [];
 
-if (!possibleList || possibleList.length === 0) {
-    throw new Error("Aucun appareil trouvé. Regarde la console: DEVICES RESPONSE");
+const allDevices = (raw?.stationList || []).flatMap(station =>
+    (station.deviceListItems || []).map(device => ({
+        ...device,
+        stationName: station.name
+    }))
+);
+
+console.log("TOUS LES APPAREILS =", allDevices);
+
+if (!allDevices.length) {
+    throw new Error("Aucun appareil trouvé.");
 }
 
-console.log("LISTE APPAREILS =", possibleList);
-showSuccess("Appareils récupérés. Regarde la console pour voir la structure.");
+// On prend en priorité un INVERTER
+const inverter =
+    allDevices.find(d => d.deviceType === "INVERTER" && d.stationName === "Maison Pessac") ||
+    allDevices.find(d => d.deviceType === "INVERTER") ||
+    allDevices[0];
+
+deyeDeviceId = inverter.deviceId;
+
+console.log("APPAREIL SÉLECTIONNÉ =", inverter);
+
+updateStatus("connected");
+showSuccess(`✓ Connecté à ${inverter.stationName} - ${inverter.deviceType} (${inverter.deviceId})`);
         } catch (error) {
             console.error("Erreur connexion:", error);
             updateStatus("disconnected");
