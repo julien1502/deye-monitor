@@ -109,20 +109,23 @@ export default async function handler(req, res) {
       });
     }
 
-  if (action === "realtime") {
+    if (action === "realtime") {
   if (!token || !deviceId) {
     return res.status(400).json({ error: "Token ou deviceId manquant" });
   }
 
-  const realtimeUrl = `${apiBase}/device/latest`;
+  const stationId = req.body.stationId;
+  if (!stationId) {
+    return res.status(400).json({ error: "stationId manquant" });
+  }
+
+  const realtimeUrl = `${apiBase}/station/latest`;
 
   const attempts = [
-    { label: "deviceId:number", body: { deviceId: Number(deviceId) } },
-    { label: "deviceId:string", body: { deviceId: String(deviceId) } },
-    { label: "deviceIdList:number[]", body: { deviceIdList: [Number(deviceId)] } },
-    { label: "deviceIdList:string[]", body: { deviceIdList: [String(deviceId)] } },
-    { label: "id:number", body: { id: Number(deviceId) } },
-    { label: "id:string", body: { id: String(deviceId) } }
+    { label: "stationId:number", body: { stationId: Number(stationId) } },
+    { label: "stationId:string", body: { stationId: String(stationId) } },
+    { label: "stationIdList:number[]", body: { stationIdList: [Number(stationId)] } },
+    { label: "stationIdList:string[]", body: { stationIdList: [String(stationId)] } }
   ];
 
   const results = [];
@@ -163,17 +166,8 @@ export default async function handler(req, res) {
 
   return res.status(500).json({
     success: false,
-    error: "Aucune variante realtime n'a fonctionné",
+    error: "Aucune variante station/latest n'a fonctionné",
     attempts: results
   });
 }
-
-    return res.status(400).json({ error: "Action non reconnue" });
-  } catch (error) {
-    console.error("Erreur serveur:", error);
-    return res.status(500).json({
-      error: "Erreur serveur",
-      details: error?.message || String(error)
-    });
-  }
 }
