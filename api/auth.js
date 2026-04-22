@@ -109,28 +109,31 @@ export default async function handler(req, res) {
       });
     }
 
-    if (action === "realtime") {
-      if (!token || !deviceId) {
-        return res.status(400).json({ error: "Token ou deviceId manquant" });
-      }
+   if (action === "realtime") {
+  if (!token || !deviceId) {
+    return res.status(400).json({ error: "Token ou deviceId manquant" });
+  }
 
-      const realtimeUrl = `${apiBase}/device/latest`;
+  const realtimeUrl = `${apiBase}/device/latest`;
 
-      const realtimeResponse = await fetch(realtimeUrl, {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({
-          deviceIdList: [deviceId]
-        })
-      });
+  const realtimeResponse = await fetch(realtimeUrl, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      deviceId: deviceId
+    })
+  });
 
-      const realtimeData = await realtimeResponse.json().catch(() => null);
+  const realtimeData = await realtimeResponse.json().catch(() => null);
 
-      return res.status(realtimeResponse.status).json({
-        success: realtimeResponse.ok,
-        response: realtimeData
-      });
-    }
+  return res.status(realtimeResponse.ok ? 200 : 500).json({
+    success: realtimeResponse.ok,
+    sent: {
+      deviceId: deviceId
+    },
+    response: realtimeData
+  });
+}
 
     return res.status(400).json({ error: "Action non reconnue" });
   } catch (error) {
