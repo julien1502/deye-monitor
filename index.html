@@ -491,13 +491,53 @@
                 );
             }
 
-            if (!loginData?.response?.accessToken) {
-                throw new Error("Aucun accessToken reçu");
-            }
+          if (!loginData?.response?.accessToken) {
+    throw new Error("Aucun accessToken reçu");
+}
 
-            deyeToken = loginData.response.accessToken;
-            updateStatus("connected");
-            showSuccess("Authentification réussie");
+deyeToken = loginData.response.accessToken;
+showSuccess("Authentification réussie, récupération des appareils...");
+
+const devicesResponse = await fetch(apiUrl(), {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        action: "devices",
+        token: deyeToken,
+        appId,
+        appSecret,
+        baseUrl,
+        companyId
+    })
+});
+
+const devicesData = await devicesResponse.json().catch(() => null);
+console.log("DEVICES RESPONSE =", devicesData);
+
+if (!devicesResponse.ok) {
+    throw new Error(
+        devicesData?.error ||
+        devicesData?.response?.msg ||
+        "Impossible de récupérer les appareils"
+    );
+}
+
+const raw = devicesData?.response;
+const possibleList =
+    raw?.data?.records ||
+    raw?.data?.rows ||
+    raw?.data?.list ||
+    raw?.data ||
+    [];
+
+if (!possibleList || possibleList.length === 0) {
+    throw new Error("Aucun appareil trouvé. Regarde la console: DEVICES RESPONSE");
+}
+
+console.log("LISTE APPAREILS =", possibleList);
+showSuccess("Appareils récupérés. Regarde la console pour voir la structure.");
         } catch (error) {
             console.error("Erreur connexion:", error);
             updateStatus("disconnected");
