@@ -552,6 +552,7 @@ console.log("APPAREIL SÉLECTIONNÉ =", inverter);
 
 updateStatus("connected");
 showSuccess(`✓ Connecté à ${inverter.stationName} - ${inverter.deviceType} (${inverter.deviceId})`);
+            fetchDeyeData();
         } catch (error) {
             console.error("Erreur connexion:", error);
             updateStatus("disconnected");
