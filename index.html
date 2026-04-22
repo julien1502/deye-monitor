@@ -514,7 +514,8 @@ const devicesResponse = await fetch(apiUrl(), {
 });
 
 const devicesData = await devicesResponse.json().catch(() => null);
-console.log("DEVICES RESPONSE =", devicesData);
+console.log("DEVICES RESPONSE JSON =", JSON.stringify(devicesData, null, 2));
+alert(JSON.stringify(devicesData.response, null, 2));
 
 if (!devicesResponse.ok) {
     throw new Error(
