@@ -580,13 +580,15 @@
                 const loginData = await loginResponse.json().catch(() => null);
 
                 if (!loginResponse.ok) {
-                    throw new Error(
-                        loginData?.error ||
-                        loginData?.details?.msg ||
-                        loginData?.details?.message ||
-                        "Échec de l'authentification"
-                    );
-                }
+    console.log("Réponse login erreur :", loginData);
+    throw new Error(
+        loginData?.details ||
+        loginData?.error ||
+        loginData?.details?.msg ||
+        loginData?.details?.message ||
+        "Échec de l'authentification"
+    );
+}
 
                 if (!loginData?.data?.accessToken) {
                     throw new Error("Aucun accessToken reçu");
