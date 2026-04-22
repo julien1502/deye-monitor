@@ -1,231 +1,259 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deye Monitor</title>
-
-<style>
-body {
-    font-family: Arial;
-    background: #111;
-    color: #eee;
-    padding: 20px;
-}
-input, button {
-    margin: 5px;
-    padding: 10px;
-}
-.card {
-    background: #222;
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 5px;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deye Monitor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #555;
+    }
+    input {
+      min-width: 280px;
+    }
+    button {
+      cursor: pointer;
+      background: #fff;
+    }
+    .card {
+      background: #222;
+      padding: 18px;
+      border-radius: 8px;
+      margin-top: 14px;
+      font-size: 18px;
+    }
+    #status {
+      margin-top: 16px;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+    #log {
+      margin-top: 18px;
+      white-space: pre-wrap;
+      background: #1b1b1b;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #9fd3ff;
+    }
+  </style>
 </head>
-
 <body>
+  <h1>Deye Monitor</h1>
 
-<h2>Deye Monitor</h2>
+  <div class="row">
+    <input id="username" type="text" placeholder="Email Deye" />
+    <input id="password" type="password" placeholder="Mot de passe Deye" />
+  </div>
 
-<input id="username" placeholder="Email">
-<input id="password" placeholder="Mot de passe" type="password"><br>
+  <div class="row">
+    <input id="appId" type="text" placeholder="App ID" />
+    <input id="appSecret" type="text" placeholder="App Secret" />
+  </div>
 
-<input id="appId" placeholder="App ID">
-<input id="appSecret" placeholder="App Secret"><br>
+  <div class="row">
+    <input id="baseUrl" type="text" value="https://eu1-developer.deyecloud.com/v1.0" />
+    <input id="companyId" type="text" placeholder="Company ID (optionnel)" />
+  </div>
 
-<input id="baseUrl" value="https://eu1-developer.deyecloud.com/v1.0"><br>
+  <div class="row">
+    <button type="button" onclick="connectToDeye()">Connecter</button>
+  </div>
 
-<button onclick="connect()">Connecter</button>
+  <div id="status">Déconnecté</div>
 
-<div id="status"></div>
+  <div class="card">Puissance : <span id="power">--</span></div>
+  <div class="card">Énergie jour : <span id="energy">--</span></div>
 
-<div class="card">Puissance: <span id="power">--</span></div>
-<div class="card">Energie jour: <span id="energy">--</span></div>
+  <div id="log"></div>
 
-<script>
+  <script>
+    let token = null;
+    let deviceId = null;
+    let refreshTimer = null;
 
-let token = null;
-let deviceId = null;
+    function api() {
+      return window.location.origin + "/api/auth";
+    }
 
-function api() {
-    return window.location.origin + "/api/auth";
-}
+    function log(msg, obj) {
+      const el = document.getElementById("log");
+      if (obj !== undefined) {
+        el.textContent = msg + "\n" + JSON.stringify(obj, null, 2);
+      } else {
+        el.textContent = msg;
+      }
+      console.log(msg, obj ?? "");
+    }
 
-function getForm() {
-    return {
-        username: document.getElementById("username").value,
+    function getForm() {
+      return {
+        username: document.getElementById("username").value.trim(),
         password: document.getElementById("password").value,
-        appId: document.getElementById("appId").value,
-        appSecret: document.getElementById("appSecret").value,
-        baseUrl: document.getElementById("baseUrl").value
-    };
-}
+        appId: document.getElementById("appId").value.trim(),
+        appSecret: document.getElementById("appSecret").value.trim(),
+        baseUrl: document.getElementById("baseUrl").value.trim().replace(/\/$/, ""),
+        companyId: document.getElementById("companyId").value.trim()
+      };
+    }
 
-async function connect() {
+    async function connectToDeye() {
+      try {
+        const f = getForm();
 
-    const f = getForm();
+        if (!f.username || !f.password || !f.appId || !f.appSecret || !f.baseUrl) {
+          document.getElementById("status").textContent = "Merci de remplir tous les champs obligatoires";
+          return;
+        }
 
-    document.getElementById("status").innerText = "Connexion...";
+        document.getElementById("status").textContent = "Connexion...";
+        log("Début connexion");
 
-    // LOGIN
-    const login = await fetch(api(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        const loginRes = await fetch(api(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             action: "login",
             ...f
-        })
-    });
+          })
+        });
 
-    const loginData = await login.json();
-    console.log("LOGIN", loginData);
+        const loginData = await loginRes.json().catch(() => null);
+        log("LOGIN", loginData);
 
-    token = loginData.response.accessToken;
+        if (!loginRes.ok || !loginData?.response?.accessToken) {
+          document.getElementById("status").textContent = "Échec login";
+          return;
+        }
 
-    // DEVICES
-    const dev = await fetch(api(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        token = loginData.response.accessToken;
+
+        document.getElementById("status").textContent = "Récupération des appareils...";
+
+        const devRes = await fetch(api(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             action: "devices",
             token,
             ...f
-        })
-    });
+          })
+        });
 
-    const devData = await dev.json();
-    console.log("DEVICES", devData);
+        const devData = await devRes.json().catch(() => null);
+        log("DEVICES", devData);
 
-    const stations = devData.response.stationList;
+        const stations = devData?.response?.stationList || [];
+        const allDevices = stations.flatMap(station =>
+          (station.deviceListItems || []).map(device => ({
+            ...device,
+            stationName: station.name
+          }))
+        );
 
-    const devices = stations.flatMap(s =>
-        s.deviceListItems.map(d => ({
-            ...d,
-            stationName: s.name
-        }))
-    );
+        log("ALL DEVICES", allDevices);
 
-    console.log("ALL DEVICES", devices);
+        const inverter =
+          allDevices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo") ||
+          allDevices.find(d => d.deviceType === "INVERTER") ||
+          null;
 
-    const inverter =
-        devices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo")
-        || devices.find(d => d.deviceType === "INVERTER");
+        if (!inverter) {
+          document.getElementById("status").textContent = "Aucun onduleur trouvé";
+          return;
+        }
 
-    deviceId = inverter.deviceId;
+        deviceId = inverter.deviceId;
+        document.getElementById("status").textContent =
+          "Connecté à " + inverter.stationName + " - INVERTER (" + inverter.deviceId + ")";
 
-    document.getElementById("status").innerText =
-        "Connecté à " + inverter.stationName;
+        if (refreshTimer) clearInterval(refreshTimer);
+        await fetchData();
+        refreshTimer = setInterval(fetchData, 30000);
 
-    fetchData();
-    setInterval(fetchData, 10000);
-}
+      } catch (e) {
+        console.error(e);
+        document.getElementById("status").textContent = "Erreur connexion: " + e.message;
+        log("ERREUR CONNEXION", { message: e.message, stack: e.stack });
+      }
+    }
 
-async function fetchData() {
-    const f = getForm();
+    async function fetchData() {
+      try {
+        const f = getForm();
 
-    try {
+        if (!token || !deviceId) return;
+
         const res = await fetch(api(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "realtime",
-                token,
-                deviceId,
-                ...f
-            })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "realtime",
+            token,
+            deviceId,
+            ...f
+          })
         });
 
         const realtimeData = await res.json().catch(() => null);
-
-        console.log("REALTIME =", realtimeData);
-        console.log("REALTIME JSON =", JSON.stringify(realtimeData, null, 2));
+        log("REALTIME", realtimeData);
 
         if (!res.ok) {
-            document.getElementById("status").innerText = "Erreur temps réel";
-            return;
+          document.getElementById("status").textContent = "Erreur temps réel";
+          return;
         }
 
-        const raw = realtimeData?.response?.data?.[0] || realtimeData?.response?.data;
+        const raw =
+          realtimeData?.response?.data?.[0] ||
+          realtimeData?.response?.data ||
+          realtimeData?.response ||
+          null;
 
         if (!raw) {
-            document.getElementById("status").innerText = "Pas de données temps réel";
-            return;
+          document.getElementById("status").textContent = "Pas de données temps réel";
+          return;
         }
 
         const power =
-            raw.activePower ??
-            raw.outputPower ??
-            raw.pac ??
-            raw.powerAC ??
-            0;
+          raw.activePower ??
+          raw.outputPower ??
+          raw.pac ??
+          raw.powerAC ??
+          0;
 
         const energy =
-            raw.dayEnergy ??
-            raw.energyToday ??
-            raw.eday ??
-            0;
+          raw.dayEnergy ??
+          raw.energyToday ??
+          raw.eday ??
+          0;
 
-        document.getElementById("power").innerText = power + " W";
-        document.getElementById("energy").innerText = energy + " kWh";
-    } catch (error) {
-        console.error("Erreur fetchData:", error);
-        document.getElementById("status").innerText = "Erreur fetchData";
+        document.getElementById("power").textContent = power + " W";
+        document.getElementById("energy").textContent = energy + " kWh";
+      } catch (e) {
+        console.error(e);
+        document.getElementById("status").textContent = "Erreur fetchData: " + e.message;
+        log("ERREUR FETCHDATA", { message: e.message, stack: e.stack });
+      }
     }
-}
-
-    const data = await res.json();
-    console.log("REALTIME =", data);
-    console.log("REALTIME JSON =", JSON.stringify(data, null, 2));
-    alert(JSON.stringify(data, null, 2));
-
-    if (!res.ok) {
-        return;
-    }
-
-    const raw = data.response?.data?.[0] || data.response?.data;
-    if (!raw) return;
-
-    const power =
-        raw.activePower ??
-        raw.outputPower ??
-        raw.pac ??
-        raw.powerAC ??
-        0;
-
-    const energy =
-        raw.dayEnergy ??
-        raw.energyToday ??
-        raw.eday ??
-        0;
-
-    document.getElementById("power").innerText = power + " W";
-    document.getElementById("energy").innerText = energy + " kWh";
-}
-
-    const raw = data.response?.data?.[0] || data.response?.data;
-
-    if (!raw) return;
-
-    // Mapping simple (à adapter si besoin)
-    const power =
-        raw.activePower ||
-        raw.outputPower ||
-        raw.pac ||
-        0;
-
-    const energy =
-        raw.dayEnergy ||
-        raw.energyToday ||
-        raw.eday ||
-        0;
-
-    document.getElementById("power").innerText = power + " W";
-    document.getElementById("energy").innerText = energy + " kWh";
-}
-
-</script>
-
+  </script>
 </body>
 </html>
