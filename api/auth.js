@@ -17,8 +17,6 @@ export default async function handler(req, res) {
       action,
       username,
       password,
-      token,
-      deviceId,
       appId,
       appSecret,
       baseUrl,
@@ -27,32 +25,58 @@ export default async function handler(req, res) {
 
     const apiBase = String(baseUrl || "").replace(/\/+$/, "");
 
-    if (!action) {
-      return res.status(400).json({ error: "Action manquante" });
+    if (action !== "login") {
+      return res.status(400).json({ error: "Action non reconnue pour ce test" });
     }
 
-    if (!apiBase) {
+    if (!username || !password || !appId || !appSecret || !apiBase) {
       return res.status(400).json({
-        error: "Base URL manquante"
+        error: "Champs manquants",
+        details: { username: !!username, password: !!password, appId: !!appId, appSecret: !!appSecret, baseUrl: !!apiBase }
       });
     }
 
-    if (action === "login") {
-      return res.status(200).json({
-        success: true,
-        debug: true,
-        received: {
-          username,
-          hasPassword: !!password,
-          appId,
-          hasAppSecret: !!appSecret,
-          baseUrl: apiBase,
-          companyId
-        }
-      });
+    const loginBody = {
+      email: username,
+      password: password,
+      appSecret: appSecret
+    };
+
+    if (companyId) {
+      loginBody.companyId = companyId;
     }
 
-    return res.status(400).json({ error: "Action non reconnue" });
+    const loginUrl = `${apiBase}/account/token?appId=${encodeURIComponent(appId)}`;
+
+    const authResponse = await fetch(loginUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(loginBody)
+    });
+
+    const rawText = await authResponse.text();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      parsed = { rawText };
+    }
+
+    return res.status(authResponse.status).json({
+      success: authResponse.ok,
+      status: authResponse.status,
+      loginUrl,
+      sentBodyPreview: {
+        email: username,
+        hasPassword: !!password,
+        hasAppSecret: !!appSecret,
+        hasCompanyId: !!companyId
+      },
+      response: parsed
+    });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return res.status(500).json({
