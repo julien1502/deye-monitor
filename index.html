@@ -577,25 +577,40 @@
                     })
                 });
 
-                const loginData = await loginResponse.json().catch(() => null);
+                const loginResponse = await fetch(apiUrl(), {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        action: "login",
+        username,
+        password,
+        appId,
+        appSecret,
+        baseUrl,
+        companyId
+    })
+});
 
-                if (!loginResponse.ok) {
-    console.log("Réponse login erreur :", loginData);
+const loginData = await loginResponse.json().catch(() => null);
+
+console.log("LOGIN RESPONSE =", loginData);
+
+if (!loginResponse.ok) {
     throw new Error(
-        loginData?.details ||
         loginData?.error ||
-        loginData?.details?.msg ||
-        loginData?.details?.message ||
+        loginData?.response?.msg ||
         "Échec de l'authentification"
     );
 }
 
-                if (!loginData?.data?.accessToken) {
-                    throw new Error("Aucun accessToken reçu");
-                }
+if (!loginData?.response?.accessToken) {
+    throw new Error("Aucun accessToken reçu");
+}
 
-                deyeToken = loginData.data.accessToken;
-                showSuccess("Authentification réussie, récupération des appareils...");
+deyeToken = loginData.response.accessToken;
+showSuccess("Authentification réussie, récupération des appareils...");
 
                 const devicesResponse = await fetch(apiUrl(), {
                     method: "POST",
