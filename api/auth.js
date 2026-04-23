@@ -1,7 +1,11 @@
 import crypto from "crypto";
 
 function sha256Lower(value) {
-  return crypto.createHash("sha256").update(String(value), "utf8").digest("hex").toLowerCase();
+  return crypto
+    .createHash("sha256")
+    .update(String(value), "utf8")
+    .digest("hex")
+    .toLowerCase();
 }
 
 function setCors(res) {
@@ -14,15 +18,20 @@ function setCors(res) {
 function authHeaders(token) {
   return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
+    Authorization: `Bearer ${token}`,
   };
 }
 
 export default async function handler(req, res) {
   setCors(res);
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
     const {
@@ -30,82 +39,102 @@ export default async function handler(req, res) {
       username,
       password,
       token,
-      deviceId,
       stationId,
       appId,
       appSecret,
       baseUrl,
-      companyId
+      companyId,
     } = req.body || {};
 
     const apiBase = String(baseUrl || "").replace(/\/+$/, "");
 
-    // ================= LOGIN =================
+    if (!action) {
+      return res.status(400).json({ error: "Action manquante" });
+    }
+
+    if (!apiBase) {
+      return res.status(400).json({ error: "Base URL manquante" });
+    }
+
     if (action === "login") {
+      if (!username || !password || !appId || !appSecret) {
+        return res.status(400).json({ error: "Paramètres de login manquants" });
+      }
+
       const loginUrl = `${apiBase}/account/token?appId=${encodeURIComponent(appId)}`;
 
       const loginBody = {
         email: username,
         password: sha256Lower(password),
-        appSecret
+        appSecret,
       };
 
-      if (companyId) loginBody.companyId = companyId;
+      if (companyId) {
+        loginBody.companyId = companyId;
+      }
 
-      const r = await fetch(loginUrl, {
+      const response = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginBody)
+        body: JSON.stringify(loginBody),
       });
 
-      const data = await r.json().catch(() => null);
+      const data = await response.json().catch(() => null);
 
-      return res.status(r.status).json({
-        success: r.ok,
-        response: data
+      return res.status(response.status).json({
+        success: response.ok,
+        response: data,
       });
     }
 
-    // ================= DEVICES =================
     if (action === "devices") {
-      const r = await fetch(`${apiBase}/station/listWithDevice`, {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({ page: 1, size: 20 })
-      });
+      if (!token) {
+        return res.status(400).json({ error: "Token manquant" });
+      }
 
-      const data = await r.json().catch(() => null);
-
-      return res.status(r.status).json({
-        success: r.ok,
-        response: data
-      });
-    }
-
-    // ================= REALTIME =================
-    if (action === "realtime") {
-      const r = await fetch(`${apiBase}/station/latest`, {
+      const response = await fetch(`${apiBase}/station/listWithDevice`, {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({
-          stationId: Number(stationId)
-        })
+          page: 1,
+          size: 20,
+        }),
       });
 
-      const data = await r.json().catch(() => null);
+      const data = await response.json().catch(() => null);
 
-      return res.status(r.status).json({
-        success: r.ok,
-        response: data
+      return res.status(response.status).json({
+        success: response.ok,
+        response: data,
+      });
+    }
+
+    if (action === "realtime") {
+      if (!token || !stationId) {
+        return res.status(400).json({ error: "Token ou stationId manquant" });
+      }
+
+      const response = await fetch(`${apiBase}/station/latest`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          stationId: Number(stationId),
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      return res.status(response.status).json({
+        success: response.ok,
+        response: data,
       });
     }
 
     return res.status(400).json({ error: "Action inconnue" });
-
   } catch (e) {
     return res.status(500).json({
       error: "Erreur serveur",
-      details: e.message
+      details: e.message,
     });
   }
 }
