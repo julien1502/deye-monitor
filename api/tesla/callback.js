@@ -1,27 +1,47 @@
 export default async function handler(req, res) {
-  const { code } = req.query;
+  try {
+    const { code, error, error_description } = req.query;
 
-  if (!code) {
-    return res.status(400).send("Pas de code");
+    if (error) {
+      return res.status(400).json({
+        ok: false,
+        error,
+        error_description
+      });
+    }
+
+    if (!code) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pas de code reçu"
+      });
+    }
+
+    const response = await fetch("https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: process.env.TESLA_CLIENT_ID,
+        client_secret: process.env.TESLA_CLIENT_SECRET,
+        code,
+        audience: "https://fleet-api.prd.eu.vn.cloud.tesla.com",
+        redirect_uri: "https://deye-monitor.vercel.app/api/tesla/callback"
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return res.status(response.status).json({
+      ok: response.ok,
+      response: data
+    });
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      error: e.message
+    });
   }
-
-  const tokenUrl = "https://auth.tesla.com/oauth2/v3/token";
-
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: process.env.TESLA_CLIENT_ID,
-      client_secret: process.env.TESLA_CLIENT_SECRET,
-      code,
-      redirect_uri: "https://deye-monitor.vercel.app/api/tesla/callback"
-    })
-  });
-
-  const data = await response.json();
-
-  return res.status(200).json(data);
 }
