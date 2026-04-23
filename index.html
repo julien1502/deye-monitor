@@ -1,146 +1,320 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Deye Monitor</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deye Monitor</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
 
-<style>
-body { background:#111; color:#eee; font-family:Arial; padding:20px; }
-input, button { padding:10px; margin:5px; }
-.card { background:#222; padding:15px; margin-top:10px; }
-#log { white-space:pre-wrap; font-size:12px; color:#8cf; }
-</style>
+    h1 {
+      margin-top: 0;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 15px;
+      border-radius: 6px;
+      border: 1px solid #555;
+    }
+
+    input {
+      min-width: 260px;
+      background: #1b1b1b;
+      color: #eee;
+    }
+
+    button {
+      cursor: pointer;
+      background: #4ade80;
+      color: #111;
+      border: none;
+      font-weight: bold;
+    }
+
+    button:hover {
+      opacity: 0.95;
+    }
+
+    .status {
+      margin: 18px 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 15px;
+    }
+
+    .card {
+      background: #222;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    #log {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background: #1b1b1b;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #8fd3ff;
+    }
+  </style>
 </head>
-
 <body>
+  <h1>Deye Monitor</h1>
 
-<h2>Deye Monitor</h2>
+  <div class="row">
+    <input id="username" type="text" placeholder="Email Deye" />
+    <input id="password" type="password" placeholder="Mot de passe Deye" />
+  </div>
 
-<input id="username" placeholder="email">
-<input id="password" type="password" placeholder="password"><br>
+  <div class="row">
+    <input id="appId" type="text" placeholder="App ID" />
+    <input id="appSecret" type="text" placeholder="App Secret" />
+  </div>
 
-<input id="appId" placeholder="appId">
-<input id="appSecret" placeholder="appSecret"><br>
+  <div class="row">
+    <input id="baseUrl" type="text" value="https://eu1-developer.deyecloud.com/v1.0" />
+    <input id="companyId" type="text" placeholder="Company ID (optionnel)" />
+  </div>
 
-<input id="baseUrl" value="https://eu1-developer.deyecloud.com/v1.0"><br>
+  <div class="row">
+    <button type="button" onclick="connectToDeye()">Connecter</button>
+  </div>
 
-<button onclick="connect()">Connecter</button>
+  <div id="status" class="status">Déconnecté</div>
 
-<h3 id="status">Déconnecté</h3>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Production solaire</div>
+      <div class="value" id="generationPower">--</div>
+    </div>
 
-<div class="card">Puissance : <span id="power">--</span></div>
-<div class="card">Energie jour : <span id="energy">--</span></div>
+    <div class="card">
+      <div class="label">Consommation maison</div>
+      <div class="value" id="consumptionPower">--</div>
+    </div>
 
-<div id="log"></div>
+    <div class="card">
+      <div class="label">Puissance batterie</div>
+      <div class="value" id="batteryPower">--</div>
+    </div>
 
-<script>
-let token = null;
-let deviceId = null;
-let stationId = null;
+    <div class="card">
+      <div class="label">SOC batterie</div>
+      <div class="value" id="batterySOC">--</div>
+    </div>
 
-function api() {
-  return location.origin + "/api/auth";
-}
+    <div class="card">
+      <div class="label">Wire power</div>
+      <div class="value" id="wirePower">--</div>
+    </div>
 
-function log(t, d) {
-  document.getElementById("log").textContent =
-    t + "\n" + JSON.stringify(d, null, 2);
-}
+    <div class="card">
+      <div class="label">Dernière mise à jour</div>
+      <div class="value" id="lastUpdate" style="font-size:18px;">--</div>
+    </div>
+  </div>
 
-function getForm() {
-  return {
-    username: username.value,
-    password: password.value,
-    appId: appId.value,
-    appSecret: appSecret.value,
-    baseUrl: baseUrl.value
-  };
-}
+  <div id="log"></div>
 
-async function connect() {
-  const f = getForm();
+  <script>
+    let token = null;
+    let stationId = null;
+    let refreshTimer = null;
 
-  status.innerText = "Connexion...";
+    function api() {
+      return window.location.origin + "/api/auth";
+    }
 
-  // LOGIN
-  const login = await fetch(api(), {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ action:"login", ...f })
-  });
+    function log(title, data) {
+      const el = document.getElementById("log");
+      el.textContent = title + "\n" + JSON.stringify(data, null, 2);
+      console.log(title, data);
+    }
 
-  const loginData = await login.json();
-  log("LOGIN", loginData);
+    function getForm() {
+      return {
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value,
+        appId: document.getElementById("appId").value.trim(),
+        appSecret: document.getElementById("appSecret").value.trim(),
+        baseUrl: document.getElementById("baseUrl").value.trim().replace(/\/$/, ""),
+        companyId: document.getElementById("companyId").value.trim(),
+      };
+    }
 
-  if (!loginData?.response?.accessToken) {
-    status.innerText = "Login failed";
-    return;
-  }
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
 
-  token = loginData.response.accessToken;
+    function updateUI(raw) {
+      document.getElementById("generationPower").textContent = (raw.generationPower ?? 0) + " W";
+      document.getElementById("consumptionPower").textContent = (raw.consumptionPower ?? 0) + " W";
+      document.getElementById("batteryPower").textContent = (raw.batteryPower ?? 0) + " W";
+      document.getElementById("batterySOC").textContent = (raw.batterySOC ?? 0) + " %";
+      document.getElementById("wirePower").textContent = (raw.wirePower ?? 0) + " W";
 
-  // DEVICES
-  const dev = await fetch(api(), {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ action:"devices", token, ...f })
-  });
+      if (raw.lastUpdateTime) {
+        const d = new Date(raw.lastUpdateTime * 1000);
+        document.getElementById("lastUpdate").textContent = d.toLocaleString("fr-FR");
+      } else {
+        document.getElementById("lastUpdate").textContent = "--";
+      }
+    }
 
-  const devData = await dev.json();
-  log("DEVICES", devData);
+    async function connectToDeye() {
+      try {
+        const f = getForm();
 
-  const stations = devData.response.stationList;
+        if (!f.username || !f.password || !f.appId || !f.appSecret || !f.baseUrl) {
+          setStatus("Merci de remplir tous les champs obligatoires");
+          return;
+        }
 
-  const devices = stations.flatMap(s =>
-    s.deviceListItems.map(d => ({
-      ...d,
-      stationName: s.name
-    }))
-  );
+        setStatus("Connexion...");
+        log("INFO", { step: "login" });
 
-  const inverter =
-    devices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo")
-    || devices.find(d => d.deviceType === "INVERTER");
+        const loginRes = await fetch(api(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "login",
+            ...f
+          })
+        });
 
-  deviceId = inverter.deviceId;
-  stationId = inverter.stationId;
+        const loginData = await loginRes.json().catch(() => null);
+        log("LOGIN", loginData);
 
-  status.innerText = "Connecté à " + inverter.stationName;
+        if (!loginRes.ok || !loginData?.response?.accessToken) {
+          setStatus("Échec login");
+          return;
+        }
 
-  fetchData();
-  setInterval(fetchData, 10000);
-}
+        token = loginData.response.accessToken;
 
-async function fetchData() {
+        setStatus("Récupération des appareils...");
 
-  const f = getForm();
+        const devRes = await fetch(api(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "devices",
+            token,
+            ...f
+          })
+        });
 
-  const res = await fetch(api(), {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      action:"realtime",
-      token,
-      deviceId,
-      stationId,
-      ...f
-    })
-  });
+        const devData = await devRes.json().catch(() => null);
+        log("DEVICES", devData);
 
-  const data = await res.json();
-  log("REALTIME", data);
+        const stations = devData?.response?.stationList || [];
 
-  const raw = data?.response?.data;
+        const allDevices = stations.flatMap(station =>
+          (station.deviceListItems || []).map(device => ({
+            ...device,
+            stationName: station.name
+          }))
+        );
 
-  if (!raw) return;
+        const inverter =
+          allDevices.find(d => d.deviceType === "INVERTER" && d.stationName !== "This is a demo") ||
+          allDevices.find(d => d.deviceType === "INVERTER") ||
+          null;
 
-  const power = raw.pac ?? raw.power ?? 0;
-  const energy = raw.eday ?? raw.energy ?? 0;
+        if (!inverter) {
+          setStatus("Aucun onduleur trouvé");
+          return;
+        }
 
-  powerEl.innerText = power + " W";
-  energyEl.innerText = energy + " kWh";
-}
-</script>
+        stationId = inverter.stationId;
 
+        setStatus(`Connecté à ${inverter.stationName}`);
+
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+        }
+
+        await fetchData();
+        refreshTimer = setInterval(fetchData, 10000);
+
+      } catch (e) {
+        setStatus("Erreur connexion: " + e.message);
+        log("ERREUR CONNEXION", {
+          message: e.message,
+          stack: e.stack
+        });
+      }
+    }
+
+    async function fetchData() {
+      try {
+        const f = getForm();
+
+        if (!token || !stationId) {
+          return;
+        }
+
+        const res = await fetch(api(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "realtime",
+            token,
+            stationId,
+            ...f
+          })
+        });
+
+        const data = await res.json().catch(() => null);
+        log("REALTIME", data);
+
+        if (!res.ok || !data?.response?.success) {
+          setStatus("Erreur temps réel");
+          return;
+        }
+
+        updateUI(data.response);
+      } catch (e) {
+        setStatus("Erreur temps réel: " + e.message);
+        log("ERREUR REALTIME", {
+          message: e.message,
+          stack: e.stack
+        });
+      }
+    }
+  </script>
 </body>
 </html>
